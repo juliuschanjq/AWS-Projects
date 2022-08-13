@@ -1,0 +1,72 @@
+'''
+/*
+ * Adapted from https://github.com/aws/aws-iot-device-sdk-python/blob/master/samples/basicPubSub/basicPubSub.py
+ *
+ */
+'''
+
+from AWSIoTPythonSDK.MQTTLib import AWSIoTMQTTClient
+import logging
+import time
+import json
+import random
+
+host = ""        # Replace with IoT Endpoint
+rootCAPath = "../key/AmazonRootCA1.pem"    # Path to the root CA file
+certificatePath = "../key/certificate.pem.crt"  # Path to the certificate file
+privateKeyPath = "../key/private.pem.key"  # Path to the private key file
+port = 8883           # Default port, non Websocket
+clientId = "SpeedLimit"         # The Client ID
+topic = "Speed"            # Topic name to publish to and subscribe from
+messagePayload = "Speed"   # The message to be sent
+
+# Callback function to run when receiving a topic message
+def customCallback(client, userdata, message):
+    print("Received a new message: ")
+    print(message.payload)
+    print("from topic: ")
+    print(message.topic)
+    print("--------------\n\n")
+
+# Configure logging
+logger = logging.getLogger("AWSIoTPythonSDK.core")
+logger.setLevel(logging.DEBUG)
+streamHandler = logging.StreamHandler()
+formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+streamHandler.setFormatter(formatter)
+logger.addHandler(streamHandler)
+
+# Initialise AWSIoTMQTTClient
+myAWSIoTMQTTClient = AWSIoTMQTTClient(clientId)
+myAWSIoTMQTTClient.configureEndpoint(host, port)
+myAWSIoTMQTTClient.configureCredentials(rootCAPath, privateKeyPath, certificatePath)
+
+# Configure AWSIoTMQTTClient connection
+myAWSIoTMQTTClient.configureAutoReconnectBackoffTime(1, 32, 20)
+myAWSIoTMQTTClient.configureOfflinePublishQueueing(-1)  # Infinite offline Publish queueing
+myAWSIoTMQTTClient.configureDrainingFrequency(2)  # Draining: 2 Hz
+myAWSIoTMQTTClient.configureConnectDisconnectTimeout(10)  # 10 sec
+myAWSIoTMQTTClient.configureMQTTOperationTimeout(5)  # 5 sec
+
+# Connect to AWS ioT
+myAWSIoTMQTTClient.connect()
+
+# Subscribe to the topic
+myAWSIoTMQTTClient.subscribe(topic, 1, customCallback)
+
+# Wait 
+time.sleep(2)
+
+# Publish to the topic in a loop. Press Ctrl-C to terminate the loop 
+loopCount = 0
+while True:
+    messagePayload = {
+        "Speed": random.randint(10, 100),
+    }
+    #message['message'] = messagePayload
+    #message['sequence'] = loopCount
+    messageJson = json.dumps(messagePayload)
+    myAWSIoTMQTTClient.publish(topic, messageJson, 1)
+    print('Published topic %s: %s\n' % (topic, messageJson))
+    loopCount += 1
+    time.sleep(1)

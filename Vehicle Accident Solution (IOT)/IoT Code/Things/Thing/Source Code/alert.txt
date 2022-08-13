@@ -1,0 +1,75 @@
+import time
+from AWSIoTPythonSDK.MQTTLib import AWSIoTMQTTClient
+import random
+import string
+from datetime import date
+import math
+
+# import certificates
+myMQTTClient = AWSIoTMQTTClient("randomKey") #random key, if another connection using the same key is opened the previous one is auto closed by AWS IOT
+myMQTTClient.configureEndpoint("", 8883)
+
+myMQTTClient.configureCredentials("../key/AmazonRootCA1.pem", "../key/private.pem.key", "../key/certificate.pem.crt")
+
+myMQTTClient.configureOfflinePublishQueueing(-1) # Infinite offline Publish queueing
+myMQTTClient.configureDrainingFrequency(2) # Draining: 2 Hz
+myMQTTClient.configureConnectDisconnectTimeout(10) # 10 sec
+myMQTTClient.configureMQTTOperationTimeout(5) # 5 sec
+print ('Initiating Realtime Data Transfer From Cloud9 RPi...')
+myMQTTClient.connect()
+
+# generate random string for car number
+def get_random_string():
+    # choose from all uppercase letter
+    letters = string.ascii_uppercase
+    result_str = ''.join(random.choice(letters) for i in range(4))
+    return result_str
+
+# generate random lat and long
+def randlatlon1():
+    pi = math.pi
+    cf = 180.0 / pi  # radians to degrees Correction Factor
+
+    # get a random Gaussian 3D vector:
+    gx = random.gauss(0.0, 1.0)
+    gy = random.gauss(0.0, 1.0)
+    gz = random.gauss(0.0, 1.0)
+
+    # normalize to an equidistributed (x,y,z) point on the unit sphere:
+    norm2 = gx*gx + gy*gy + gz*gz
+    norm1 = 1.0 / math.sqrt(norm2)
+    x = gx * norm1
+    y = gy * norm1
+    z = gz * norm1
+
+    radLat = math.asin(z)      # latitude  in radians
+    radLon = math.atan2(y,x)   # longitude in radians
+
+    return (round(cf*radLat, 5), round(cf*radLon, 5))
+
+def loop():
+    while True:
+        CAR_NUMBER = get_random_string()
+        
+        today = date.today()
+        # dd/mm/YY
+        DATE = today.strftime("%d/%m/%Y")
+        
+        result = randlatlon1()
+        LATITUDE = result[0]
+        LONGTITUDE = result[1]
+
+        time.sleep(30) # every 30s send a msg, you have to implement it to when car crash send this msg
+        print("Sending Alert")
+
+
+        myMQTTClient.publish(
+            topic="alert",
+            QoS=1,
+            payload ='{"CAR_NUMBER": "'+str(CAR_NUMBER)+'","DATE":  "'+str(DATE)+'","LATITUDE": "'+str(LATITUDE)+'","LONGTITUDE":  "'+str(LONGTITUDE)+'"}');
+
+if __name__ == '__main__':
+    try:
+        loop()
+    except KeyboardInterrupt:
+        pass

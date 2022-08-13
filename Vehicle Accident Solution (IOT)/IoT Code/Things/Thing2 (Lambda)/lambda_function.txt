@@ -1,0 +1,92 @@
+import boto3
+import json
+import csv
+import io
+from datetime import datetime
+
+client_db = boto3.client('dynamodb')
+client_sns = boto3.client('sns')
+client_s3 = boto3.client('s3')
+
+def lambda_handler(event, context):
+    
+    # Get data from AWS IoT Core(mqtt)
+    CAR_NUMBER = event['CAR_NUMBER'];
+    DATE = event['DATE'];
+    LATITUDE = event['LATITUDE'];
+    LONGTITUDE = event['LONGTITUDE'];
+    
+    # Email Body
+    head = "Unfortunately, Your registered car has been crashed. We hope the following info will be helpful for you.\r\n\r\n";
+    car_number = "Car Number : " + CAR_NUMBER +"\r\n";
+    location = "Location : http://maps.google.com/?q=" + LATITUDE + ',' + LONGTITUDE + "\r\n";
+    date = "Date : " +  DATE + "\r\n";
+    emergency = "Emergency Services Number: Traffic Police(6547 0000), Police(999) and Ambulance and Rescue(995)";
+    alerting_message = head + car_number + location + date + emergency;
+    
+    
+    try:
+        # Send an Email to the selected SNS Topic 
+        snsres = client_sns.publish (
+          TargetArn = "arn:aws:sns:", #input your sns endpoint
+          Message = json.dumps({'default': alerting_message}),
+          Subject = 'Test Alert',
+          MessageStructure = 'json'
+        )
+        
+        print("SNS Response:", snsres)
+        
+        # Insert data into DB
+        dbres = client_db.put_item(
+        TableName='CARCRASH_DB',
+        Item={
+                'CAR_NUMBER': {
+                  'S': str(CAR_NUMBER)
+                },
+                'DATE': {
+                  'S': str(DATE)
+                },
+                'LATITUDE': {
+                  'S': str(LATITUDE)
+                }
+                ,
+                'LONGTITUDE': {
+                  'S': str(LONGTITUDE)
+                }
+            }
+        )
+        
+        print("DB Response:", dbres)
+        
+        # Write data in csv format s into S3
+        csvio = io.StringIO()
+        writer = csv.writer(csvio)
+        
+        writer.writerow([
+            'CAR_NUMBER',
+            'DATE',
+            'LATITUDE',
+            'LONGTITUDE'
+        ])
+        
+        writer.writerow([
+            str(CAR_NUMBER),
+            str(DATE),
+            str(LATITUDE),
+            str(LONGTITUDE)
+        ])
+        
+    
+        dateTimeObj = datetime.now()
+        s3res = client_s3.put_object(Body=csvio.getvalue(), ContentType='application/vnd.ms-excel', Bucket='carcrashcsv', Key= str(dateTimeObj)+'.csv') 
+        csvio.close()
+        
+        print("S3 Response:", s3res)
+        
+    except Exception as err:
+        print(err)
+    
+    return {
+        'statusCode': 200,
+        'body': json.dumps('All Done!')
+    }
