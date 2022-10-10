@@ -67,7 +67,7 @@ def lambda_handler(event, context):
             tosend+= '{0} - {1}%'.format(Label["Name"], Label["Confidence"])
 
         
-        message = client.publish(TargetArn='arn:aws:sns:ap-southeast-1:758443149415:image-rekognition', Message=tosend, Subject='Uploaded Message Label')
+        message = client.publish(TargetArn='arn:aws:sns:ap-southeast-x:xxxxxxxxxxxx:image-rekognition', Message=tosend, Subject='Uploaded Message Label')
         
 
         return response
