@@ -4,3 +4,9 @@ Vehicle Accident Alert is a solution that utilises AWS services for IoT Core & s
 
 ![image](https://user-images.githubusercontent.com/109099956/185918210-92c7e0c6-5bcd-453c-9e1e-01ea30277c1f.png)
 
+
+
+
+# Rekognition Label Project
+
+
